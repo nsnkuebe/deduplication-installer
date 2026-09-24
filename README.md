@@ -5,7 +5,7 @@ An installer that detects content already on the machine (shared libraries, engi
 **Idea:** split packages into content-addressed chunks -> compare signed manifests against the local store -> fetch only missing chunks -> assemble the install atomically.
 
 ## Status
-Phase 1: Python prototype (SHA-256, fixed-size chunks, local CAS, staged atomic install).
+Phase 2 / M2 in progress: signing and repository support.
 
 ## Quick start
 ```bash
