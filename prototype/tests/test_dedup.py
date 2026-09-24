@@ -1,4 +1,6 @@
 import json
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
@@ -8,6 +10,8 @@ from dedup.chunker import FixedChunker
 from dedup.hashing import hash_bytes
 from dedup.installer import install, plan
 from dedup.manifest import canonical_bytes, publish_dir
+from dedup.repository import RepositoryClient, StaticRepository
+from dedup.signing import generate_keypair, sign_manifest, verify_manifest
 
 VECTORS = Path(__file__).resolve().parents[2] / "spec" / "test-vectors" / "sha256.json"
 
@@ -95,3 +99,65 @@ def test_manifest_bytes_are_deterministic(tmp_path):
     m1 = publish_dir(src, "p", "1", r, FixedChunker(64))
     m2 = publish_dir(src, "p", "1", r, FixedChunker(64))
     assert canonical_bytes(m1) == canonical_bytes(m2)
+
+
+def test_manifest_signature_detects_tampering():
+    private_key, public_key = generate_keypair()
+    manifest = {"format": 1, "name": "p", "version": "1"}
+    signed = sign_manifest(manifest, private_key)
+    assert verify_manifest(signed, public_key)
+    signed["version"] = "2"
+    assert not verify_manifest(signed, public_key)
+
+
+def test_static_repository_publishes_and_client_downloads(tmp_path):
+    src = tmp_path / "src"
+    _make_pkg(src, {"app.bin": b"repository payload"})
+    store = ChunkStore(tmp_path / "store")
+    manifest = publish_dir(src, "app", "1", store, FixedChunker(64))
+    repository = tmp_path / "repo"
+    StaticRepository(repository).publish(manifest, store)
+
+    client = RepositoryClient(repository.as_uri())
+    assert client.get_index() == {"packages": {"app": ["1"]}}
+    downloaded_manifest = client.get_manifest("app", "1")
+    chunk_id = downloaded_manifest["files"][0]["chunks"][0]["hash"]
+    destination = tmp_path / "chunk"
+    client.download_chunk(chunk_id, destination)
+    assert destination.read_bytes() == b"repository payload"
+
+
+def test_repository_client_resumes_http_download(tmp_path):
+    payload = b"0123456789" * 100
+    chunk_id = hash_bytes(payload)
+    root = tmp_path / "repo"
+    chunk_path = root / "chunks" / "sha256" / chunk_id.split(":", 1)[1][:2] / chunk_id.split(":", 1)[1][2:]
+    chunk_path.parent.mkdir(parents=True)
+    chunk_path.write_bytes(payload)
+    requests = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            requests.append(self.headers.get("Range"))
+            start = int(self.headers["Range"].split("=", 1)[1][:-1]) if self.headers.get("Range") else 0
+            body = payload[start:]
+            self.send_response(206 if start else 200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever)
+    thread.start()
+    try:
+        destination = tmp_path / "partial"
+        destination.write_bytes(payload[:37])
+        RepositoryClient(f"http://127.0.0.1:{server.server_port}/").download_chunk(chunk_id, destination)
+        assert destination.read_bytes() == payload
+        assert requests == ["bytes=37-"]
+    finally:
+        server.shutdown()
+        thread.join()

@@ -11,8 +11,8 @@
 - Measure: bytes downloaded vs naive install, dedup ratio *(done)*
 
 ## M2 - Signing and repository
-- Ed25519 signing and verification of canonical manifest bytes
-- Static HTTPS repo layout (index, manifests, chunks) and download client with resume
+- Ed25519 signing and verification of canonical manifest bytes *(done)*
+- Static HTTPS repo layout (index, manifests, chunks) and download client with resume *(done)*
 - Path-traversal and symlink-escape tests
 - Signed index with expiry (rollback protection)
 

@@ -9,7 +9,7 @@ Phase 2 / M2 in progress: signing and repository support.
 
 ## Quick start
 ```bash
-pip install pytest
+pip install -r requirements.txt
 py -m pytest prototype/tests -q
 py scripts/demo.py
 ```
