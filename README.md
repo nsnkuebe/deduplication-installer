@@ -10,8 +10,8 @@ Phase 1: Python prototype (SHA-256, fixed-size chunks, local CAS, staged atomic 
 ## Quick start
 ```bash
 pip install pytest
-python -m pytest prototype/tests -q
-python scripts/demo.py
+py -m pytest prototype/tests -q
+py scripts/demo.py
 ```
 
 ## Layout

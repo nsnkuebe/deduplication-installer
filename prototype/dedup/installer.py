@@ -9,13 +9,14 @@ def plan(manifest: dict, store: ChunkStore) -> dict:
     needed = {chunk["hash"]: chunk["len"]
               for file in manifest["files"] for chunk in file["chunks"]}
     download_bytes = sum(size for chunk_id, size in needed.items()
-                         if not (store.root / "sha256" / chunk_id.split(":", 1)[1][:2]
-                                 / chunk_id.split(":", 1)[1][2:]).exists())
+                         if not store.has(chunk_id))
     total_bytes = manifest["total_size"]
     return {
         "total_bytes": total_bytes,
         "download_bytes": download_bytes,
         "saved_bytes": total_bytes - download_bytes,
+        "naive_download_bytes": total_bytes,
+        "dedup_ratio": 0 if total_bytes == 0 else 1 - download_bytes / total_bytes,
     }
 
 
@@ -38,7 +39,8 @@ def install(manifest: dict, store: ChunkStore, destination: Path, fetch) -> None
                 data.extend(chunk_data)
             if len(data) != file["size"] or hash_bytes(data) != file["file_hash"]:
                 raise ValueError(f"file verification failed: {file['path']}")
-            output.write_bytes(data)
+            store.put_file(data, file["file_hash"])
+            store.link_file(file["file_hash"], output)
         if destination.exists():
             shutil.rmtree(destination)
         staging.replace(destination)

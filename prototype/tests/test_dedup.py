@@ -32,6 +32,14 @@ def test_cas_dedups_and_rejects_bad_hash(tmp_path):
         s.put(b"hello", expected_id=hash_bytes(b"other"))
 
 
+def test_cas_compresses_when_compression_shrinks(tmp_path):
+    s = ChunkStore(tmp_path / "s")
+    chunk_id, _ = s.put(b"a" * 10000)
+    digest = chunk_id.split(":", 1)[1]
+    assert (tmp_path / "s" / "sha256" / digest[:2] / (digest[2:] + ".zst")).exists()
+    assert s.get(chunk_id) == b"a" * 10000
+
+
 def _make_pkg(root: Path, files: dict):
     for rel, data in files.items():
         p = root / rel
@@ -56,6 +64,16 @@ def test_shared_content_is_not_downloaded_twice(tmp_path):
     assert p["download_bytes"] < mb["total_size"] * 0.05   # only b.txt is new
     install(mb, local, tmp_path / "inst_b", fetch=repo.get)
     assert (tmp_path / "inst_b" / "lib/engine.bin").read_bytes() == shared
+
+
+def test_identical_files_are_hardlinked(tmp_path):
+    src = tmp_path / "src"
+    _make_pkg(src, {"a.bin": b"same", "b.bin": b"same"})
+    repo = ChunkStore(tmp_path / "repo")
+    manifest = publish_dir(src, "p", "1", repo, FixedChunker(64))
+    destination = tmp_path / "install"
+    install(manifest, repo, destination, fetch=repo.get)
+    assert (destination / "a.bin").stat().st_ino == (destination / "b.bin").stat().st_ino
 
 
 def test_corrupt_chunk_from_repo_is_rejected(tmp_path):

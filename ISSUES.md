@@ -6,9 +6,9 @@
 - Local CAS with atomic, verified writes *(done)*
 - Manifest build + canonical bytes *(done)*
 - Plan (missing chunks) + staged atomic install *(done)*
-- Per-chunk Zstandard compression in the CAS (skip if it does not shrink)
-- Whole-file dedup via hardlinks when materialising
-- Measure: bytes downloaded vs naive install, dedup ratio
+- Per-chunk Zstandard compression in the CAS (skip if it does not shrink) *(done)*
+- Whole-file dedup via hardlinks when materialising *(done)*
+- Measure: bytes downloaded vs naive install, dedup ratio *(done)*
 
 ## M2 - Signing and repository
 - Ed25519 signing and verification of canonical manifest bytes
