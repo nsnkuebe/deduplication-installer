@@ -1,0 +1,1 @@
+"""Reference implementation of the deduplicating installer prototype."""
