@@ -1,0 +1,42 @@
+# Build output
+build/
+cmake-build-*/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Local stores and databases (never commit)
+dedupstore/
+*.db
+*.sqlite
+*.pack
+*.idx
+
+# Secrets: NEVER commit private keys
+*.key
+*.pem
+*.priv
+secrets/
+.env
+
+# Large test corpora: download with scripts/, or use Git LFS
+corpus/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

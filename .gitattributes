@@ -1,0 +1,9 @@
+# Normalise text, but never touch bytes that get hashed.
+* text=auto
+
+# Test vectors and binary fixtures must stay byte-exact (hashes depend on it).
+spec/test-vectors/** -text
+*.bin binary
+*.pack binary
+*.dipkg binary
+*.zst binary
