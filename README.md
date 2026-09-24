@@ -25,8 +25,20 @@ py scripts/demo.py
 | `repo-server/` | REST/HTTPS repository API (PostgreSQL) |
 | `schema/` | SQL migrations |
 
-## Stack
-C++ core - Python prototype - Qt GUI - Zstandard - SHA-256 then BLAKE3 - Ed25519 - JSON manifest - local filesystem CAS - REST/HTTPS repo - PostgreSQL (central).
+## Tech Stack
+| Technology | Role |
+|---|---|
+| C++ | Core library (`libdedup`) |
+| Python | Reference prototype and tooling |
+| Qt | Desktop GUI |
+| Zstandard | Per-chunk compression |
+| SHA-256 | Current content hashing algorithm |
+| BLAKE3 | Planned future hashing algorithm |
+| Ed25519 | Manifest and index signing |
+| JSON | Manifest and index format |
+| Local filesystem CAS | Content-addressed local storage |
+| REST/HTTPS | Repository transport |
+| PostgreSQL | Central repository database |
 
 ## Roadmap
 See `ISSUES.md` (one milestone per phase).
