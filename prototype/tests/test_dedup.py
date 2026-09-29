@@ -12,6 +12,7 @@ from dedup.chunker import FixedChunker
 from dedup.hashing import hash_bytes
 from dedup.installer import install, plan
 from dedup.manifest import canonical_bytes, publish_dir
+from dedup.localdb import LocalDatabase
 from dedup.repository import RepositoryClient, StaticRepository
 from dedup.signing import generate_keypair, sign_index, sign_manifest, verify_index, verify_manifest
 
@@ -166,6 +167,48 @@ def test_signed_index_has_expiry_and_verification():
     assert not verify_index({**signed, "expires": "2000-01-01T00:00:00Z"}, public_key)
     signed["packages"]["app"] = ["2"]
     assert not verify_index(signed, public_key)
+
+
+def test_local_database_tracks_refcounts_and_gc(tmp_path):
+    db = LocalDatabase(tmp_path / "state.db")
+    chunk_id = hash_bytes(b"hello world")
+    file_id = hash_bytes(b"hello world!\n")
+
+    assert db.acquire_chunk(chunk_id) == 1
+    assert db.chunk_refcount(chunk_id) == 1
+    assert db.acquire_chunk(chunk_id) == 2
+    assert db.release_chunk(chunk_id) == 1
+    assert db.release_chunk(chunk_id) == 0
+    assert db.has_chunk(chunk_id) is False
+
+    db.acquire_file(file_id)
+    assert db.file_refcount(file_id) == 1
+    db.release_file(file_id)
+    assert db.file_refcount(file_id) == 0
+    assert db.has_file(file_id) is False
+    db.gc(grace_seconds=0)
+    assert db.file_refcount(file_id) == 0
+
+
+def test_local_database_replays_journal_after_reopen(tmp_path):
+    db = LocalDatabase(tmp_path / "state.db")
+    chunk_id = hash_bytes(b"journaled")
+    db.acquire_chunk(chunk_id)
+    db.close()
+
+    with open(tmp_path / "state.db.journal", "a", encoding="utf-8") as handle:
+        handle.write(json.dumps({"object_type": "chunk", "object_id": chunk_id, "delta": 1, "size": len(b"journaled"), "status": "committed"}))
+        handle.write("\n")
+
+    recovered = LocalDatabase(tmp_path / "state.db")
+    assert recovered.chunk_refcount(chunk_id) == 2
+    recovered.close()
+
+    partial = tmp_path / "state.db.journal"
+    partial.write_text(json.dumps({"object_type": "chunk", "object_id": "incomplete", "delta": 1, "size": 3, "status": "prepared"}) + "\n", encoding="utf-8")
+    fresh = LocalDatabase(tmp_path / "state.db")
+    assert fresh.chunk_refcount("incomplete") == 0
+    fresh.close()
 
 
 def test_static_repository_publishes_and_client_downloads(tmp_path):

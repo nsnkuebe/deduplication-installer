@@ -5,7 +5,7 @@ An installer that detects content already on the machine (shared libraries, engi
 **Idea:** split packages into content-addressed chunks -> compare signed manifests against the local store -> fetch only missing chunks -> assemble the install atomically.
 
 ## Status
-Phase 2 / M2 complete: signing, repository support, and path hardening are in place.
+Phase 3 / M3 complete: local database, refcounts, garbage collection, and recovery journaling are now in the prototype.
 
 ## Quick start
 ```powershell

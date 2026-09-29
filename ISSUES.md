@@ -13,14 +13,14 @@
 ## M2 - Signing and repository
 - Ed25519 signing and verification of canonical manifest bytes *(done)*
 - Static HTTPS repo layout (index, manifests, chunks) and download client with resume *(done)*
-- Path-traversal and symlink-escape tests
-- Signed index with expiry (rollback protection)
+- Path-traversal and symlink-escape tests *(done)*
+- Signed index with expiry (rollback protection) *(done)*
 
 ## M3 - Database, refcounts, GC
-- Decide local DB (ADR 0003) and write schema + migrations
-- Refcounts for file objects and chunks, uninstall
-- Mark-and-sweep GC with grace period
-- Transaction journal and crash-recovery tests
+- Decide local DB (ADR 0003) and write schema + migrations *(SQLite embedded chosen; schema exists in `prototype/dedup/localdb.py`)* *(done)*
+- Refcounts for file objects and chunks, uninstall *(done in prototype DB layer)*
+- Mark-and-sweep GC with grace period *(done in prototype DB layer)*
+- Transaction journal and crash-recovery tests *(done)*
 
 ## M4 - C++ core
 - Port hashing, chunker, CAS, manifest to C++ against `spec/test-vectors`
