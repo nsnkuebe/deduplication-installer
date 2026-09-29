@@ -1,8 +1,27 @@
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import shutil
 
 from .cas import ChunkStore
 from .hashing import hash_bytes
+
+
+def _validate_relative_path(path: str) -> PurePosixPath:
+    parsed = PurePosixPath(path)
+    if parsed.is_absolute() or ".." in parsed.parts or not parsed.parts:
+        raise ValueError(f"invalid relative path: {path}")
+    return parsed
+
+
+def _safe_destination(root: Path, relative: str) -> Path:
+    parsed = _validate_relative_path(relative)
+    target = root.joinpath(*parsed.parts)
+    root_real = root.resolve(strict=False)
+    target_real = target.resolve(strict=False)
+    try:
+        target_real.relative_to(root_real)
+    except ValueError as exc:
+        raise ValueError(f"path escapes destination: {relative}") from exc
+    return target
 
 
 def plan(manifest: dict, store: ChunkStore) -> dict:
@@ -27,7 +46,7 @@ def install(manifest: dict, store: ChunkStore, destination: Path, fetch) -> None
     staging.mkdir(parents=True)
     try:
         for file in manifest["files"]:
-            output = staging / file["path"]
+            output = _safe_destination(staging, file["path"])
             output.parent.mkdir(parents=True, exist_ok=True)
             data = bytearray()
             for chunk in file["chunks"]:

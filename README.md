@@ -5,14 +5,16 @@ An installer that detects content already on the machine (shared libraries, engi
 **Idea:** split packages into content-addressed chunks -> compare signed manifests against the local store -> fetch only missing chunks -> assemble the install atomically.
 
 ## Status
-Phase 2 / M2 in progress: signing and repository support.
+Phase 2 / M2 complete: signing, repository support, and path hardening are in place.
 
 ## Quick start
-```bash
-pip install -r requirements.txt
+```powershell
+py -m pip install -r requirements.txt
 py -m pytest prototype/tests -q
 py scripts/demo.py
 ```
+
+> Verified on Python 3.13 in this workspace.
 
 ## Layout
 | Path | Purpose |

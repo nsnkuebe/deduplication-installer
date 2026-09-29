@@ -11,17 +11,28 @@ def canonical_bytes(manifest: dict) -> bytes:
 
 def _validate_path(path: str) -> None:
     parsed = PurePosixPath(path)
-    if parsed.is_absolute() or ".." in parsed.parts:
+    if parsed.is_absolute() or ".." in parsed.parts or not parsed.parts:
         raise ValueError(f"invalid relative path: {path}")
+
+
+def _safe_root_relative(root: Path, path: Path) -> Path:
+    resolved = path.resolve(strict=False)
+    root_resolved = root.resolve(strict=False)
+    try:
+        return resolved.relative_to(root_resolved)
+    except ValueError as exc:
+        raise ValueError(f"refusing path escaping package root: {path}") from exc
 
 
 def publish_dir(root: Path, name: str, version: str, store: ChunkStore, chunker) -> dict:
     files = []
-    for path in sorted(Path(root).rglob("*")):
+    root = Path(root)
+    for path in sorted(root.rglob("*")):
         if not path.is_file():
             continue
         relative = path.relative_to(root).as_posix()
         _validate_path(relative)
+        _safe_root_relative(root, path)
         data = path.read_bytes()
         chunks = []
         for offset, length in chunker.split(data):

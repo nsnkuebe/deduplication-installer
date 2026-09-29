@@ -1,4 +1,6 @@
 import json
+import os
+import subprocess
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -11,7 +13,7 @@ from dedup.hashing import hash_bytes
 from dedup.installer import install, plan
 from dedup.manifest import canonical_bytes, publish_dir
 from dedup.repository import RepositoryClient, StaticRepository
-from dedup.signing import generate_keypair, sign_manifest, verify_manifest
+from dedup.signing import generate_keypair, sign_index, sign_manifest, verify_index, verify_manifest
 
 VECTORS = Path(__file__).resolve().parents[2] / "spec" / "test-vectors" / "sha256.json"
 
@@ -108,6 +110,62 @@ def test_manifest_signature_detects_tampering():
     assert verify_manifest(signed, public_key)
     signed["version"] = "2"
     assert not verify_manifest(signed, public_key)
+
+
+def _make_link(link: Path, target: Path) -> None:
+    if os.name == "nt":
+        subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)], check=True, capture_output=True)
+        return
+    link.symlink_to(target, target_is_directory=True)
+
+
+def test_install_rejects_traversal_and_symlink_paths(tmp_path):
+    store = ChunkStore(tmp_path / "store")
+    chunk = b"payload"
+    chunk_id = hash_bytes(chunk)
+    store.put(chunk)
+
+    malicious = {
+        "format": 1,
+        "name": "p",
+        "version": "1",
+        "hash_algo": "sha256",
+        "chunker": {"type": "fixed", "size": 64},
+        "files": [{
+            "path": "../escape.bin",
+            "type": "file",
+            "size": len(chunk),
+            "file_hash": hash_bytes(chunk),
+            "chunks": [{"hash": chunk_id, "off": 0, "len": len(chunk)}],
+        }],
+        "total_size": len(chunk),
+    }
+    with pytest.raises(ValueError):
+        install(malicious, store, tmp_path / "dest", fetch=lambda cid: chunk)
+
+    src = tmp_path / "src"
+    src.mkdir()
+    outside_dir = tmp_path / "outside_dir"
+    outside_dir.mkdir()
+    (outside_dir / "escape.bin").write_bytes(chunk)
+    _make_link(src / "link", outside_dir)
+    with pytest.raises(ValueError):
+        publish_dir(src, "p", "1", store, FixedChunker(64))
+
+
+def test_signed_index_has_expiry_and_verification():
+    private_key, public_key = generate_keypair()
+    index = {
+        "packages": {"app": ["1"]},
+        "issued_at": "2026-01-01T00:00:00Z",
+        "expires": "2099-01-01T00:00:00Z",
+    }
+
+    signed = sign_index(index, private_key)
+    assert verify_index(signed, public_key)
+    assert not verify_index({**signed, "expires": "2000-01-01T00:00:00Z"}, public_key)
+    signed["packages"]["app"] = ["2"]
+    assert not verify_index(signed, public_key)
 
 
 def test_static_repository_publishes_and_client_downloads(tmp_path):
